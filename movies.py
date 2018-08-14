@@ -1,6 +1,7 @@
 from tkinter import *
 import sqlite3
-
+import requests
+from bs4 import BeautifulSoup
 
 window = Tk()
 
@@ -59,7 +60,7 @@ def search():
 
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM movies WHERE title = ? OR director = ? OR year = ?", (title, director, year,))
+    cur.execute("SELECT * FROM movies WHERE title = ? OR director = ? OR year = ?", (title, director, year))
 
     rows = cur.fetchall()
 
@@ -69,6 +70,34 @@ def search():
         for info in movie:
             display.insert(END, str(info) + '\n')
         display.insert(END, '\n')
+
+def imdb():
+    conn = sqlite3.connect("movies.db")
+    cur = conn.cursor()
+    cur.execute("DELETE FROM movies")
+    conn.commit()
+    conn.close()
+    r = requests.get("https://www.imdb.com/chart/top")
+
+    c = r.content
+
+    soup = BeautifulSoup(c, "html.parser")
+
+    items = soup.find_all("td", {"class" : "titleColumn"})
+
+    titles = list()
+    directors = list()
+    years = list()
+
+    for i in range(10):
+        title = soup.find_all("td", {"class" : "titleColumn"})[i].find("a", recursive = False)
+        year = soup.find_all("span", {"class" : "secondaryInfo"})[i].text
+        titles.append(title.text)
+        directors.append(title.get('title').split("(")[0])
+        years.append(year[1:5])
+    
+    for title, director, year in zip(titles, directors, years):
+        insert(title, director, year)
 
 l_title = Label(window, text = "Title: ")
 l_title.grid(row = 0, column = 0)
@@ -104,6 +133,9 @@ b_show.pack()
 
 b_search = Button(button_group, text = "Search", command = search)
 b_search.pack()
+
+b_imdb = Button(button_group, text = "IMDb 250", command = imdb)
+b_imdb.pack()
 
 button_group.grid(row = 2, column = 2, columnspan = 3)
 
